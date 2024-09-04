@@ -1,3 +1,9 @@
+// Universidad del Valle
+// Digital 2
+// Ana Gramajo
+// Se muestra el valor de 2 potenciómetros y un contador en la pantalla LCD
+
+// Librerías
 #include <Arduino.h>
 #include <LiquidCrystal_I2C.h> 
 
@@ -5,25 +11,26 @@ portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
 
 // Variables globales
 // Pines de los botones
-#define Mas 4
-#define Menos 23
+#define Mas 4 // Para incrementar
+#define Menos 23 // Para disminuir
 #define Pot1 32
 #define Pot2 13
 bool mas = false; // Variable para ver cuando se presiona el botón de incremento
 bool menos = false; // Variable para ver cuando se presiona el botón de disminución
-int count = 0;
-uint8_t decenas, unidades, decimal;
-unsigned int adcRaw;
-float voltaje1;
-float voltaje2;
-
-#define I2C_ADDR    0x27
+int count = 0; // Variable para el contador
+uint8_t decenas, unidades, decimal; // Variables para mostrar el voltaje en la pantalla LCD
+float voltaje1; // Voltaje del potenciómetro 1
+float voltaje2; // Voltaje del potenciómetro 2
+// Setup de la pantalla LCD
+#define I2C_ADDR    0x27 
 #define LCD_COLUMNS 16
 #define LCD_LINES   2
 LiquidCrystal_I2C lcd(I2C_ADDR, LCD_COLUMNS, LCD_LINES);
 
 // Declaración de funciones  
-void voltaje(float v);
+void voltaje(float v); // Para leer el voltaje de los potenciómetros
+void mostrarMas(void); // Incrementa el contador y actualiza la pantalla LCD
+void mostrarMenos(void); // Disminuye el contador y actualiza la pantalla LCD
 
 // Interrupciones
 // Para incrementar
@@ -40,15 +47,17 @@ void IRAM_ATTR menos_isr() {
 }
 
 void setup() {
+  // Se inicia la comunicación serial
   Serial.begin(115200);
-  // put your setup code here, to run once:
+  // Setup de los botones
   pinMode(Mas,INPUT_PULLDOWN);
   pinMode(Menos,INPUT_PULLUP);
+  // Se adjuntan las interrupciones a los botones
   attachInterrupt(Mas, mas_isr, RISING);
   attachInterrupt(Menos, menos_isr, FALLING);
   // Inicializar el LCD
   lcd.init();
-  //Encender la luz de fondo.
+  //Encender la luz de fondo
   lcd.backlight();
   // Escribimos los títulos
   lcd.setCursor(0,0);
@@ -58,6 +67,7 @@ void setup() {
   lcd.setCursor(12,0);
   lcd.print("CPU:");
   lcd.setCursor(12,1);
+  // El contador se inicia en 0
   lcd.print(count);
   delay(3000);
 }
@@ -66,48 +76,59 @@ void loop() {
   // Modo binario
   // Lee el botón más - incrementa la cuenta
   if (mas) {
-    count = (count + 1); 
-    if(count==256) {
-      count=0;
-    }
-    lcd.setCursor(12,1);
-    lcd.print(count);
-    lcd.print("  ");
+    mostrarMas(); // Función para incrementar el contador y actualizar la pantalla LCD
     mas = false;
     delay(200);
   }
   // Lee el botón menos - disminuye la cuenta
   if (menos) {
-    count = (count - 1); // Decrementa y vuelve a 15 después de 0
-    if(count==-1) {
-      count=255;
-    }
-    lcd.setCursor(12,1);
-    lcd.print(count);
-    lcd.print("  ");
+    mostrarMenos(); // Función para disminuir el contador y actualizar la pantalla LCD
     menos = false;
     delay(200);
   }
-  voltaje1 = analogReadMilliVolts(Pot1) / 10.0;
+  voltaje1 = analogReadMilliVolts(Pot1) / 10.0; // Lee el voltaje del potenciómetro 1
   lcd.setCursor(0,1);
-  voltaje(voltaje1);
-  voltaje2 = analogReadMilliVolts(Pot2) / 10.0;
+  voltaje(voltaje1); // Manda el voltaje 1 a una función que lo muestra en la pantalla LCD
+  delay(200);
+  voltaje2 = analogReadMilliVolts(Pot2) / 10.0; // Lee el voltaje del potenciómetro 2
   lcd.setCursor(6,1);
-  voltaje(voltaje2);
+  voltaje(voltaje2); // Manda el voltaje 1 a una función que lo muestra en la pantalla LCD
+  delay(200);
 }
 
 
 void voltaje(float v) {
-  int temp = v;
-  decenas = temp / 100.0;
-  temp = temp - decenas * 100.0;
-  unidades = temp / 10.0;
-  temp = temp - unidades * 10.0; 
-  decimal = temp; 
+  int volt = v;
+  decenas = volt / 100.0; // Encuentra las decenas
+  volt = volt - decenas * 100.0; // Resta las decenas al voltaje
+  unidades = volt / 10.0; // Encuentra las unidades
+  volt = volt - unidades * 10.0; // Resta las unidades al voltaje
+  decimal = volt; // El valor sobrante es el decimal
+  // Actualiza la pantalla LCD
   lcd.print(decenas);
   lcd.print(".");
   lcd.print(unidades);
   lcd.print(decimal);
   lcd.print("V");
   delay(250);
+}
+
+void mostrarMas(void) {
+  count = (count + 1); 
+  if(count==256) {
+    count=0;
+  }
+  lcd.setCursor(12,1);
+  lcd.print(count);
+  lcd.print("  ");
+}
+
+void mostrarMenos(void) {
+  count = (count - 1); // Decrementa y vuelve a 15 después de 0
+  if(count==-1) {
+    count=255;
+  }
+  lcd.setCursor(12,1);
+  lcd.print(count);
+  lcd.print("  ");
 }
