@@ -1,0 +1,113 @@
+#include <Arduino.h>
+#include <LiquidCrystal_I2C.h> 
+
+portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
+
+// Variables globales
+// Pines de los botones
+#define Mas 4
+#define Menos 23
+#define Pot1 32
+#define Pot2 13
+bool mas = false; // Variable para ver cuando se presiona el botón de incremento
+bool menos = false; // Variable para ver cuando se presiona el botón de disminución
+int count = 0;
+uint8_t decenas, unidades, decimal;
+unsigned int adcRaw;
+float voltaje1;
+float voltaje2;
+
+#define I2C_ADDR    0x27
+#define LCD_COLUMNS 16
+#define LCD_LINES   2
+LiquidCrystal_I2C lcd(I2C_ADDR, LCD_COLUMNS, LCD_LINES);
+
+// Declaración de funciones  
+void voltaje(float v);
+
+// Interrupciones
+// Para incrementar
+void IRAM_ATTR mas_isr() {
+  portENTER_CRITICAL_ISR(&mux);
+    mas = true;
+  portEXIT_CRITICAL_ISR(&mux);
+}
+// Para disminuir
+void IRAM_ATTR menos_isr() {
+  portENTER_CRITICAL_ISR(&mux);
+    menos = true;
+  portEXIT_CRITICAL_ISR(&mux);
+}
+
+void setup() {
+  Serial.begin(115200);
+  // put your setup code here, to run once:
+  pinMode(Mas,INPUT_PULLDOWN);
+  pinMode(Menos,INPUT_PULLUP);
+  attachInterrupt(Mas, mas_isr, RISING);
+  attachInterrupt(Menos, menos_isr, FALLING);
+  // Inicializar el LCD
+  lcd.init();
+  //Encender la luz de fondo.
+  lcd.backlight();
+  // Escribimos los títulos
+  lcd.setCursor(0,0);
+  lcd.print("Pot1:");
+  lcd.setCursor(6,0);
+  lcd.print("Pot2:");
+  lcd.setCursor(12,0);
+  lcd.print("CPU:");
+  lcd.setCursor(12,1);
+  lcd.print(count);
+  delay(3000);
+}
+
+void loop() {
+  // Modo binario
+  // Lee el botón más - incrementa la cuenta
+  if (mas) {
+    count = (count + 1); 
+    if(count==256) {
+      count=0;
+    }
+    lcd.setCursor(12,1);
+    lcd.print(count);
+    lcd.print("  ");
+    mas = false;
+    delay(200);
+  }
+  // Lee el botón menos - disminuye la cuenta
+  if (menos) {
+    count = (count - 1); // Decrementa y vuelve a 15 después de 0
+    if(count==-1) {
+      count=255;
+    }
+    lcd.setCursor(12,1);
+    lcd.print(count);
+    lcd.print("  ");
+    menos = false;
+    delay(200);
+  }
+  voltaje1 = analogReadMilliVolts(Pot1) / 10.0;
+  lcd.setCursor(0,1);
+  voltaje(voltaje1);
+  voltaje2 = analogReadMilliVolts(Pot2) / 10.0;
+  lcd.setCursor(6,1);
+  voltaje(voltaje2);
+}
+
+
+void voltaje(float v) {
+  int temp = v;
+  decenas = temp / 100.0;
+  temp = temp - decenas * 100.0;
+  unidades = temp / 10.0;
+  temp = temp - unidades * 10.0; 
+  decimal = temp; 
+  lcd.print(decenas);
+  lcd.print(".");
+  lcd.print(unidades);
+  lcd.print(decimal);
+  lcd.print("V");
+  delay(250);
+}
